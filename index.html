@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plastenik 3D – Realistične sadnice i flaše</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        :root {
+            --bg: #0b0f18;
+            --panel-bg: #131c2a;
+            --text: #dde3ee;
+            --accent: #4ade80;
+            --accent2: #60a5fa;
+            --warn: #fbbf24;
+            --danger: #f87171;
+            --border: #2d3a50;
+            --input-bg: #0a121f;
+            --radius: 6px;
+            --orange: #fb923c;
+            --purple: #a78bfa;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+        .panel {
+            width: 440px;
+            min-width: 440px;
+            background: var(--panel-bg);
+            display: flex;
+            flex-direction: column;
+            padding: 8px;
+            gap: 4px;
+            overflow-y: auto;
+            z-index: 10;
+            box-shadow: 2px 0 20px rgba(0, 0, 0, 0.7);
+            border-right: 1px solid var(--border);
+        }
+        .panel h1 {
+            font-size: 0.9rem;
+            font-weight: 800;
+            color: var(--accent);
+        }
+        .layer-tabs {
+            display: flex;
+            gap: 2px;
+            flex-wrap: wrap;
+        }
+        .layer-tab {
+            flex: 1;
+            min-width: 55px;
+            text-align: center;
+            padding: 5px 2px;
+            background: #1e2a3a;
+            border-radius: 4px 4px 0 0;
+            cursor: pointer;
+            font-size: 0.44rem;
+            font-weight: 700;
+            border: 2px solid transparent;
+            transition: all 0.15s;
+        }
+        .layer-tab.active {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: #0f2218;
+        }
+        .layer-content {
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .layer-content.active {
+            display: flex;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+        .form-group label {
+            font-size: 0.48rem;
+            font-weight: 700;
+            color: #6b7a99;
+            text-transform: uppercase;
+        }
+        .form-group input,
+        .form-group select {
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 4px 6px;
+            border-radius: 3px;
+            font-size: 0.62rem;
+            width: 100%;
+            font-family: inherit;
+        }
+        .form-row {
+            display: flex;
+            gap: 4px;
+            align-items: flex-end;
+        }
+        .form-row .form-group {
+            flex: 1;
+        }
+        .btn {
+            padding: 5px 8px;
+            border: none;
+            border-radius: 3px;
+            font-weight: 700;
+            font-size: 0.52rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            transition: all .2s;
+        }
+        .btn-accent {
+            background: var(--accent);
+            color: #000;
+        }
+        .btn-blue {
+            background: var(--accent2);
+            color: #000;
+        }
+        .btn-orange {
+            background: var(--orange);
+            color: #000;
+        }
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--border);
+            color: #fff;
+        }
+        .btn-outline:hover {
+            border-color: var(--accent);
+        }
+        .btn-sm {
+            padding: 3px 6px;
+            font-size: 0.44rem;
+        }
+        .custom-elements-list {
+            max-height: 60px;
+            overflow-y: auto;
+            font-size: 0.4rem;
+        }
+        .custom-element-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1e2a3a;
+            border-radius: 2px;
+            padding: 2px 4px;
+            margin-bottom: 1px;
+        }
+        .custom-element-item button {
+            background: var(--danger);
+            border: none;
+            color: #fff;
+            border-radius: 2px;
+            padding: 0 4px;
+            cursor: pointer;
+            font-size: 0.4rem;
+        }
+        .readonly-input {
+            background: #1e2a3a !important;
+            border: 1px dashed #4ade80 !important;
+            color: #4ade80 !important;
+            font-weight: 700;
+            cursor: default;
+        }
+        .viewer-3d {
+            flex: 1;
+            position: relative;
+            cursor: grab;
+            min-height: 300px;
+        }
+        .viewer-3d canvas {
+            display: block;
+        }
+        .viewer-label {
+            position: absolute;
+            top: 6px;
+            left: 8px;
+            background: rgba(0, 0, 0, .75);
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.45rem;
+            z-index: 5;
+            pointer-events: none;
+        }
+        .coords-hud {
+            position: absolute;
+            top: 6px;
+            right: 8px;
+            background: rgba(0, 0, 0, .8);
+            color: var(--accent);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.45rem;
+            font-weight: 700;
+            z-index: 5;
+            pointer-events: none;
+            font-family: monospace;
+        }
+        .hint {
+            position: absolute;
+            bottom: 6px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, .7);
+            color: #aaa;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 0.4rem;
+            pointer-events: none;
+            z-index: 5;
+        }
+        .plant-preview {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 4px;
+        }
+        .plant-card {
+            width: 55px;
+            height: 70px;
+            background: #1e2a3a;
+            border-radius: 6px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            text-align: center;
+            padding: 4px;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+        }
+        .plant-card:hover {
+            border-color: var(--accent);
+            background: #0f2218;
+        }
+        .plant-card.selected {
+            border-color: #fbbf24;
+            background: #1a2f1f;
+            box-shadow: 0 0 12px rgba(251, 191, 36, 0.3);
+        }
+        .plant-emoji {
+            font-size: 1.6rem;
+        }
+        .plant-name {
+            font-size: 0.38rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        .bottle-dim-row {
+            display: flex;
+            gap: 3px;
+            align-items: center;
+        }
+        .bottle-dim-row input {
+            width: 50px;
+            text-align: center;
+        }
+        @media (max-width: 900px) {
+            body {
+                flex-direction: column;
+            }
+            .panel {
+                width: 100%;
+                min-width: 100%;
+                max-height: 45vh;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+            .viewer-3d {
+                height: 55vh;
+            }
+        }
+        #report-container {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            width: 800px;
+            background: #fff;
+            padding: 20px;
+            font-family: 'Segoe UI', sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div class="panel" id="panel">
+        <h1>🏡 Plastenik 3D – Sadnice</h1>
+        <div class="layer-tabs" id="layerTabs">
+            <span class="layer-tab" data-layer="projektovanje">📐 Projekat</span>
+            <span class="layer-tab active" data-layer="uzgoj">🌱 Uzgoj</span>
+            <span class="layer-tab" data-layer="troskovnik">💰 Troškovnik</span>
+        </div>
+        <!-- PROJEKTOVANJE -->
+        <div class="layer-content" id="layerProjektovanje">
+            <div class="form-row">
+                <div class="form-group"><label>Tip</label><select id="typeSelect"><option value="arch">Luk-tunel</option><option value="asymmetric">Jednostrešni</option><option value="gable">Dvostrešni</option></select></div>
+                <div class="form-group"><label>Širina X (m)</label><input type="number" id="widthInput" value="3.2" step="0.1" min="1"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Broj lukova</label><input type="number" id="numArchesInput" value="7" step="1" min="2"></div>
+                <div class="form-group"><label>Razmak (m)</label><input type="number" id="spacingInput" value="1.0" step="0.1" min="0.3"></div>
+            </div>
+            <div class="form-group"><label>Visina luka Y (m)</label><input type="number" id="heightArch" value="2.1" step="0.1"></div>
+            <div class="form-group"><label>Dužina Z (m)</label><input type="text" id="lengthDisplay" value="6.0" readonly class="readonly-input"></div>
+            <button class="btn btn-accent btn-sm" id="updateBtn">🔄 Ažuriraj plastenik</button>
+        </div>
+        <!-- UZGOJ -->
+        <div class="layer-content active" id="layerUzgoj">
+            <div class="form-group"><label>🌱 Izaberite vrstu sadnice</label></div>
+            <div class="plant-preview" id="plantCards">
+                <div class="plant-card selected" data-plant="tomato"><span class="plant-emoji">🍅</span><span class="plant-name">Paradajz</span></div>
+                <div class="plant-card" data-plant="pepper"><span class="plant-emoji">🌶️</span><span class="plant-name">Paprika</span></div>
+                <div class="plant-card" data-plant="cucumber"><span class="plant-emoji">🥒</span><span class="plant-name">Krastavac</span></div>
+                <div class="plant-card" data-plant="peas"><span class="plant-emoji">🫛</span><span class="plant-name">Grašak</span></div>
+                <div class="plant-card" data-plant="beans"><span class="plant-emoji">🫘</span><span class="plant-name">Buranija</span></div>
+                <div class="plant-card" data-plant="eggplant"><span class="plant-emoji">🍆</span><span class="plant-name">Patlidžan</span></div>
+                <div class="plant-card" data-plant="strawberry"><span class="plant-emoji">🍓</span><span class="plant-name">Jagode</span></div>
+                <div class="plant-card" data-plant="potato"><span class="plant-emoji">🥔</span><span class="plant-name">Krompir</span></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Visina biljke Y (m)</label><input type="number" id="plantHeight" value="1.2" step="0.1" min="0.1" max="3"></div>
+                <div class="form-group"><label>Broj biljaka</label><input type="number" id="plantCount" value="1" step="1" min="1" max="20"></div>
+            </div>
+            <div class="form-group"><label>Način sadnje</label>
+                <select id="plantMode">
+                    <option value="ground">🌍 Konvencionalno (zemlja)</option>
+                    <option value="bottle">🧴 Flaša / saksija</option>
+                </select>
+            </div>
+            <div id="bottleOptions" style="display:none;flex-direction:column;gap:4px;background:#111a28;padding:6px;border-radius:4px;border:1px solid var(--border);">
+                <div class="form-group"><label>Dimenzije flaše (cm) – Š x D x V</label>
+                    <div class="bottle-dim-row">
+                        <input type="number" id="bottleW" value="13" step="1" min="5" max="50"> ×
+                        <input type="number" id="bottleD" value="10" step="1" min="5" max="50"> ×
+                        <input type="number" id="bottleH" value="15" step="1" min="5" max="60"> cm
+                    </div>
+                </div>
+                <div class="form-group"><label>Montaža flaše</label>
+                    <select id="bottleMount"><option value="floor">Na pod</option><option value="hang">Objesiti na konstrukciju</option></select>
+                </div>
+                <div class="form-group" id="hangTargetGroup" style="display:none"><label>Koordinate kačenja X,Y,Z (m)</label><input type="text" id="hangTarget" value="0,1.5,3"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>X pozicija (klik na 3D)</label><input type="text" id="plantX" value="0.00" readonly class="readonly-input"></div>
+                <div class="form-group"><label>Z pozicija (klik na 3D)</label><input type="text" id="plantZ" value="3.00" readonly class="readonly-input"></div>
+            </div>
+            <button class="btn btn-accent btn-sm" id="addPlantBtn">➕ Posadi sadnicu</button>
+            <div id="plantList" class="custom-elements-list"></div>
+            <button class="btn btn-outline btn-sm" id="clearPlantsBtn">🗑 Ukloni sve sadnice</button>
+        </div>
+        <!-- TROŠKOVNIK -->
+        <div class="layer-content" id="layerTroskovnik">
+            <div id="troskovnikContent"></div>
+            <button class="btn btn-accent btn-sm" id="pdfBtn">📄 Preuzmi PDF</button>
+        </div>
+    </div>
+    <div class="viewer-3d" id="viewer3d">
+        <div class="viewer-label">🎥 3D Prikaz – Klikni za koordinate</div>
+        <div class="coords-hud" id="coordsHud">📍 X:0.00 Y:0.00 Z:0.00</div>
+        <div class="hint">🖱 Rotiraj | Scroll = Zoom | Klik = Odabir pozicije za sadnju</div>
+    </div>
+    <div id="report-container"></div>
+
+    <script type="importmap">
+        { "imports": { "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js" } }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/controls/OrbitControls.js';
+
+        const $ = id => document.getElementById(id);
+        const viewer3d = $('viewer3d');
+        const coordsHud = $('coordsHud');
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color('#0b0f18');
+        scene.fog = new THREE.Fog('#0b0f18', 30, 60);
+        const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
+        camera.position.set(8, 5, -3);
+        const renderer3d = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+        renderer3d.shadowMap.enabled = true;
+        renderer3d.shadowMap.type = THREE.PCFSoftShadowMap;
+        viewer3d.appendChild(renderer3d.domElement);
+
+        function resizeRenderer() {
+            const w = viewer3d.clientWidth,
+                h = viewer3d.clientHeight;
+            renderer3d.setSize(w, h);
+            camera.aspect = w / Math.max(h, 1);
+            camera.updateProjectionMatrix();
+        }
+        resizeRenderer();
+        window.addEventListener('resize', resizeRenderer);
+
+        const controls = new OrbitControls(camera, renderer3d.domElement);
+        controls.target.set(0, 1.0, 3);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.minDistance = 2;
+        controls.maxDistance = 30;
+
+        scene.add(new THREE.AmbientLight('#b8d4ff', 1.4));
+        const sunLight = new THREE.DirectionalLight('#fffef5', 4);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.set(2048, 2048);
+        sunLight.shadow.camera.near = 0.5;
+        sunLight.shadow.camera.far = 60;
+        sunLight.shadow.camera.left = -15;
+        sunLight.shadow.camera.right = 15;
+        sunLight.shadow.camera.top = 15;
+        sunLight.shadow.camera.bottom = -2;
+        sunLight.position.set(10, 15, 5);
+        scene.add(sunLight);
+        scene.add(new THREE.HemisphereLight('#87ceeb', '#3d2b1f', 0.8));
+
+        const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ color: '#3d3226',
+            roughness: 0.9 }));
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.05;
+        ground.receiveShadow = true;
+        scene.add(ground);
+        const modelGroup = new THREE.Group();
+        scene.add(modelGroup);
+
+        const foilMat = new THREE.MeshPhysicalMaterial({ color: '#c8e6c9', roughness: 0.25, transparent: true, opacity: 0.42,
+            side: THREE.DoubleSide, depthWrite: false });
+        const frameMat = new THREE.MeshStandardMaterial({ color: '#e0e0e0', roughness: 0.35, metalness: 0.7 });
+
+        let plants = [];
+        let selectedPlantType = 'tomato';
+        let lastClickPoint = { x: 0, y: 0, z: 3 };
+        let currentLayer = 'uzgoj';
+
+        document.querySelectorAll('.layer-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.layer-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.layer-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                currentLayer = tab.dataset.layer;
+                const el = $('layer' + currentLayer.charAt(0).toUpperCase() + currentLayer.slice(1));
+                if (el) el.classList.add('active');
+                if (currentLayer === 'troskovnik') updateTroskovnik();
+            });
+        });
+
+        document.querySelectorAll('.plant-card').forEach(card => {
+            card.addEventListener('click', () => {
+                document.querySelectorAll('.plant-card').forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                selectedPlantType = card.dataset.plant;
+                const heights = { tomato: 1.5, pepper: 0.7, cucumber: 1.8, peas: 1.2, beans: 1.4,
+                    eggplant: 0.9, strawberry: 0.3, potato: 0.6 };
+                $('plantHeight').value = heights[selectedPlantType] || 1.0;
+            });
+        });
+
+        $('plantMode').addEventListener('change', () => {
+            $('bottleOptions').style.display = $('plantMode').value === 'bottle' ? 'flex' : 'none';
+        });
+        $('bottleMount').addEventListener('change', () => {
+            $('hangTargetGroup').style.display = $('bottleMount').value === 'hang' ? 'flex' : 'none';
+        });
+
+        function computeLength() { return (parseInt($('numArchesInput').value) - 1) * parseFloat($('spacingInput')
+        .value); }
+
+        function getBounds() {
+            const w = parseFloat($('widthInput').value) || 3.2;
+            const L = computeLength();
+            const h = parseFloat($('heightArch').value) || 2.1;
+            return { w, L, maxH: h };
+        }
+
+        function buildGreenhouse() {
+            const w = parseFloat($('widthInput').value) || 3.2;
+            const L = computeLength();
+            const h = parseFloat($('heightArch').value) || 2.1;
+            const nArches = parseInt($('numArchesInput').value) || 7;
+            const spacing = parseFloat($('spacingInput').value) || 1;
+            const R = (w * w + 4 * h * h) / (8 * h);
+            const d = h - R;
+            const shape = new THREE.Shape();
+            shape.moveTo(-w / 2, 0);
+            const sa = Math.atan2(0 - d, -w / 2);
+            const ea = Math.atan2(0 - d, w / 2);
+            shape.absarc(0, d, R, sa, ea, h <= w / 2 ? false : true);
+            shape.lineTo(-w / 2, 0);
+            const geom = new THREE.ExtrudeGeometry(shape, { steps: 1, depth: L, bevelEnabled: false });
+            const foil = new THREE.Mesh(geom, foilMat);
+            foil.castShadow = true;
+            foil.receiveShadow = true;
+            foil.name = 'foil';
+            modelGroup.add(foil);
+            const pts = [];
+            let ta = Math.abs(ea - sa);
+            if ((h > w / 2 && ta < Math.PI) || (h <= w / 2 && ta > Math.PI)) ta = 2 * Math.PI - ta;
+            const dir = h > w / 2 ? -1 : 1;
+            for (let i = 0; i <= 80; i++) {
+                const ang = sa + dir * ta * (i / 80);
+                pts.push(new THREE.Vector3(Math.cos(ang) * R, Math.sin(ang) * R + d, 0));
+            }
+            for (let i = 0; i < nArches; i++) {
+                const curve = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(p.x, p.y, i * spacing)));
+                const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 64, 0.025, 8, false), frameMat);
+                tube.castShadow = true;
+                modelGroup.add(tube);
+            }
+            const bG = new THREE.CylinderGeometry(0.025, 0.025, L, 8);
+            const bl = new THREE.Mesh(bG, frameMat);
+            bl.rotation.x = Math.PI / 2;
+            bl.position.set(-w / 2, 0.01, L / 2);
+            modelGroup.add(bl);
+            const br = bl.clone();
+            br.position.set(w / 2, 0.01, L / 2);
+            modelGroup.add(br);
+            $('lengthDisplay').value = L.toFixed(2);
+        }
+
+        function createPlantModel(type, height, x, z, mode, bottleDims, hangY) {
+            const grp = new THREE.Group();
+            const stalkH = height * 0.65;
+            const stalkR = 0.012;
+            const stalkGeom = new THREE.CylinderGeometry(stalkR * 0.7, stalkR, stalkH, 8);
+            const stalkMat = new THREE.MeshStandardMaterial({ color: '#3d6b35', roughness: 0.7 });
+            const stalk = new THREE.Mesh(stalkGeom, stalkMat);
+            stalk.position.y = stalkH / 2;
+            stalk.castShadow = true;
+            grp.add(stalk);
+
+            const leafMat = new THREE.MeshStandardMaterial({ color: '#4a8c3f', roughness: 0.5, side: THREE.DoubleSide });
+            const leafGeom = new THREE.SphereGeometry(0.08, 6, 4);
+            leafGeom.scale(1, 0.3, 1.5);
+            for (let i = 0; i < 5; i++) {
+                const leaf = new THREE.Mesh(leafGeom, leafMat);
+                leaf.position.y = stalkH * (0.3 + i * 0.15);
+                leaf.position.x = Math.cos(i * 2.5) * 0.1;
+                leaf.position.z = Math.sin(i * 2.5) * 0.1;
+                leaf.rotation.z = 0.5;
+                leaf.rotation.x = 0.3;
+                leaf.castShadow = true;
+                grp.add(leaf);
+            }
+
+            switch (type) {
+                case 'tomato':
+                    for (let i = 0; i < 4; i++) {
+                        const fruit = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6),
+                            new THREE.MeshStandardMaterial({ color: '#e53935', roughness: 0.3, metalness: 0.1 }));
+                        fruit.position.y = stalkH * (0.5 + i * 0.12);
+                        fruit.position.x = (i % 2 === 0 ? 0.08 : -0.08);
+                        fruit.position.z = (i < 2 ? 0.06 : -0.06);
+                        fruit.castShadow = true;
+                        grp.add(fruit);
+                    }
+                    break;
+                case 'pepper':
+                    for (let i = 0; i < 3; i++) {
+                        const fruit = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.07, 0.04),
+                            new THREE.MeshStandardMaterial({ color: i === 0 ? '#c62828' : i === 1 ? '#f9a825' :
+                                    '#4caf50', roughness: 0.4 }));
+                        fruit.position.y = stalkH * (0.4 + i * 0.18);
+                        fruit.position.x = (i % 2 === 0 ? 0.07 : -0.07);
+                        fruit.castShadow = true;
+                        grp.add(fruit);
+                    }
+                    break;
+                case 'cucumber':
+                    for (let i = 0; i < 3; i++) {
+                        const fruit = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.2, 8),
+                            new THREE.MeshStandardMaterial({ color: '#33691e', roughness: 0.5 }));
+                        fruit.position.y = stalkH * (0.4 + i * 0.15);
+                        fruit.position.x = 0.1;
+                        fruit.rotation.z = 0.3;
+                        fruit.castShadow = true;
+                        grp.add(fruit);
+                    }
+                    break;
+                case 'peas':
+                    for (let i = 0; i < 6; i++) {
+                        const pod = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.015, 0.1, 6),
+                            new THREE.MeshStandardMaterial({ color: '#558b2f', roughness: 0.5 }));
+                        pod.position.y = stalkH * (0.3 + i * 0.1);
+                        pod.position.x = (i % 2 === 0 ? 0.06 : -0.06);
+                        pod.rotation.z = (i % 2 === 0 ? 0.4 : -0.4);
+                        pod.castShadow = true;
+                        grp.add(pod);
+                    }
+                    break;
+                case 'beans':
+                    for (let i = 0; i < 5; i++) {
+                        const pod = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.012, 0.14, 6),
+                            new THREE.MeshStandardMaterial({ color: '#7cb342', roughness: 0.5 }));
+                        pod.position.y = stalkH * (0.25 + i * 0.14);
+                        pod.position.x = (i % 2 === 0 ? 0.07 : -0.07);
+                        pod.rotation.z = (i % 2 === 0 ? -0.5 : 0.5);
+                        pod.castShadow = true;
+                        grp.add(pod);
+                    }
+                    break;
+                case 'eggplant':
+                    for (let i = 0; i < 2; i++) {
+                        const fruit = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6),
+                            new THREE.MeshStandardMaterial({ color: '#4a148c', roughness: 0.2, metalness: 0.3 }));
+                        fruit.scale.set(1, 1.4, 1);
+                        fruit.position.y = stalkH * (0.45 + i * 0.25);
+                        fruit.position.x = (i === 0 ? 0.07 : -0.07);
+                        fruit.castShadow = true;
+                        grp.add(fruit);
+                    }
+                    const calyx = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 4),
+                        new THREE.MeshStandardMaterial({ color: '#2e7d32', roughness: 0.6 }));
+                    calyx.position.y = stalkH * 0.45 + 0.09;
+                    calyx.position.x = 0.07;
+                    calyx.scale.set(1.5, 0.3, 1.5);
+                    grp.add(calyx);
+                    break;
+                case 'strawberry':
+                    grp.children.forEach(c => { if (c !== stalk) c.scale.set(0.7, 0.7, 0.7);
+                        c.position.y *= 0.5; });
+                    stalk.scale.set(1, 0.4, 1);
+                    stalk.position.y = 0.05;
+                    for (let i = 0; i < 4; i++) {
+                        const fruit = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6),
+                            new THREE.MeshStandardMaterial({ color: '#d32f2f', roughness: 0.2, metalness: 0.1 }));
+                        fruit.position.y = 0.06;
+                        fruit.position.x = Math.cos(i * 1.57) * 0.12;
+                        fruit.position.z = Math.sin(i * 1.57) * 0.12;
+                        fruit.castShadow = true;
+                        grp.add(fruit);
+                    }
+                    break;
+                case 'potato':
+                    const flowerMat = new THREE.MeshStandardMaterial({ color: '#e8eaf6', roughness: 0.4,
+                        emissive: '#c5cae9', emissiveIntensity: 0.3 });
+                    for (let i = 0; i < 3; i++) {
+                        const flower = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 5), flowerMat);
+                        flower.position.y = stalkH * (0.6 + i * 0.12);
+                        flower.position.x = (i % 2 === 0 ? 0.06 : -0.06);
+                        flower.castShadow = true;
+                        grp.add(flower);
+                    }
+                    break;
+            }
+            if (mode === 'bottle' && bottleDims) {
+                const { w: bw, d: bd, h: bh } = bottleDims;
+                const bottleGrp = new THREE.Group();
+                const bottleBody = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd),
+                    new THREE.MeshPhysicalMaterial({ color: '#8d6e63', roughness: 0.3, metalness: 0.1,
+                        transparent: true, opacity: 0.7, clearcoat: 0.2 }));
+                bottleBody.position.y = bh / 2;
+                bottleBody.castShadow = true;
+                bottleGrp.add(bottleBody);
+                const soil = new THREE.Mesh(new THREE.BoxGeometry(bw * 0.9, bh * 0.25, bd * 0.9),
+                    new THREE.MeshStandardMaterial({ color: '#3e2723', roughness: 0.9 }));
+                soil.position.y = bh * 0.15;
+                bottleGrp.add(soil);
+                const rim = new THREE.Mesh(new THREE.TorusGeometry(Math.min(bw, bd) * 0.7, 0.005, 8, 16),
+                    new THREE.MeshStandardMaterial({ color: '#a1887f', roughness: 0.4, metalness: 0.3 }));
+                rim.position.y = bh;
+                rim.rotation.x = Math.PI / 2;
+                bottleGrp.add(rim);
+                grp.add(bottleGrp);
+                grp.position.set(x, mode === 'ground' ? 0 : (hangY || 1.5), z);
+            } else {
+                grp.position.set(x, 0.02, z);
+            }
+            return grp;
+        }
+
+        function createSeedling(type, bottleDims) {
+            const grp = new THREE.Group();
+            const { w: bw, d: bd, h: bh } = bottleDims;
+            const bottleBody = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd),
+                new THREE.MeshPhysicalMaterial({ color: '#8d6e63', roughness: 0.3, metalness: 0.1, transparent: true,
+                    opacity: 0.7, clearcoat: 0.2 }));
+            bottleBody.position.y = bh / 2;
+            bottleBody.castShadow = true;
+            grp.add(bottleBody);
+            const soil = new THREE.Mesh(new THREE.BoxGeometry(bw * 0.9, bh * 0.2, bd * 0.9),
+                new THREE.MeshStandardMaterial({ color: '#3e2723', roughness: 0.9 }));
+            soil.position.y = bh * 0.12;
+            grp.add(soil);
+            const rim = new THREE.Mesh(new THREE.TorusGeometry(Math.min(bw, bd) * 0.7, 0.005, 8, 16),
+                new THREE.MeshStandardMaterial({ color: '#a1887f', roughness: 0.4, metalness: 0.3 }));
+            rim.position.y = bh;
+            rim.rotation.x = Math.PI / 2;
+            grp.add(rim);
+            const sproutStalk = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.006, bh * 0.35, 6),
+                new THREE.MeshStandardMaterial({ color: '#66bb6a', roughness: 0.6 }));
+            sproutStalk.position.y = bh * 0.22;
+            sproutStalk.castShadow = true;
+            grp.add(sproutStalk);
+            for (let i = 0; i < 2; i++) {
+                const cotyledon = new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 4),
+                    new THREE.MeshStandardMaterial({ color: '#81c784', roughness: 0.4, side: THREE.DoubleSide }));
+                cotyledon.scale.set(1, 0.2, 1.5);
+                cotyledon.position.y = bh * 0.4;
+                cotyledon.position.x = (i === 0 ? 0.025 : -0.025);
+                cotyledon.rotation.z = (i === 0 ? 0.5 : -0.5);
+                cotyledon.castShadow = true;
+                grp.add(cotyledon);
+            }
+            return grp;
+        }
+
+        function rebuildAll() {
+            modelGroup.children = modelGroup.children.filter(c => c.name === 'foil' || c.name === 'archFrame' || c.name ===
+                'baseFrame' || !c.name);
+            modelGroup.clear();
+            buildGreenhouse();
+            plants.forEach(p => {
+                const model = createPlantModel(p.type, p.height, p.x, p.z, p.mode, p.bottleDims, p.hangY);
+                model.name = 'plant';
+                modelGroup.add(model);
+            });
+            const o = new THREE.Vector3(0, 0.02, 0);
+            const ex = scene.getObjectByName('originMarker');
+            if (ex) scene.remove(ex);
+            const mg = new THREE.Group();
+            mg.name = 'originMarker';
+            mg.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), o, 0.8, 0xff4444, 0.1, 0.06));
+            mg.add(new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), o, 0.8, 0x44ff44, 0.1, 0.06));
+            mg.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), o, 0.8, 0x4488ff, 0.1, 0.06));
+            scene.add(mg);
+        }
+
+        function updateAll() {
+            rebuildAll();
+            const bounds = getBounds();
+            controls.target.set(0, bounds.maxH * 0.4, bounds.L / 2);
+            controls.update();
+            renderPlantList();
+            if (currentLayer === 'troskovnik') updateTroskovnik();
+        }
+
+        function renderPlantList() {
+            $('plantList').innerHTML = plants.map((p, i) =>
+                `<div class="custom-element-item"><span>🌱 ${p.type} H:${p.height}m X:${p.x.toFixed(1)} Z:${p.z.toFixed(1)} ${p.mode==='bottle'?'🧴':''} ${p.mode==='bottle'&&p.bottleDims?p.bottleDims.w+'×'+p.bottleDims.d+'×'+p.bottleDims.h+'cm':''}</span><button data-idx="${i}" data-list="plant">✕</button></div>`
+            ).join('');
+            document.querySelectorAll('[data-list="plant"]').forEach(b => {
+                b.addEventListener('click', e => {
+                    plants.splice(parseInt(e.target.dataset.idx), 1);
+                    updateAll();
+                });
+            });
+        }
+
+        function updateTroskovnik() {
+            const summary = { plants: plants.length, bottles: plants.filter(p => p.mode === 'bottle').length };
+            let html =
+                `<table style="width:100%;border-collapse:collapse;font-size:0.5rem;margin-top:4px"><tr style="background:#1e2a3a"><th>Stavka</th><th>Količina</th></tr>`;
+            html +=
+                `<tr><td>🌱 Ukupno sadnica</td><td style="text-align:center">${summary.plants}</td></tr><tr><td>🧴 Flaša</td><td style="text-align:center">${summary.bottles}</td></tr></table>`;
+            $('troskovnikContent').innerHTML = html;
+        }
+
+        $('addPlantBtn').addEventListener('click', () => {
+            const height = parseFloat($('plantHeight').value) || 1.2;
+            const count = parseInt($('plantCount').value) || 1;
+            const mode = $('plantMode').value;
+            const x = parseFloat($('plantX').value) || lastClickPoint.x;
+            const z = parseFloat($('plantZ').value) || lastClickPoint.z;
+            let bottleDims = null;
+            let hangY = 1.5;
+            if (mode === 'bottle') {
+                const bw = parseFloat($('bottleW').value) / 100 || 0.13;
+                const bd = parseFloat($('bottleD').value) / 100 || 0.10;
+                const bh = parseFloat($('bottleH').value) / 100 || 0.15;
+                bottleDims = { w: bw, d: bd, h: bh };
+                if ($('bottleMount').value === 'hang') {
+                    const parts = $('hangTarget').value.split(',');
+                    hangY = parseFloat(parts[1]) || 1.5;
+                }
+            }
+            const spacing = 0.4;
+            for (let i = 0; i < count; i++) {
+                const px = x + (i % 5) * spacing - (Math.min(count, 5) - 1) * spacing / 2;
+                const pz = z + Math.floor(i / 5) * spacing;
+                plants.push({ type: selectedPlantType, height, x: px, z: pz, mode, bottleDims, hangY });
+            }
+            updateAll();
+        });
+
+        $('clearPlantsBtn').addEventListener('click', () => { plants = [];
+            updateAll(); });
+        $('updateBtn').addEventListener('click', updateAll);
+        [$('widthInput'), $('numArchesInput'), $('spacingInput'), $('heightArch')].forEach(i => i.addEventListener('input',
+            updateAll));
+
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        renderer3d.domElement.addEventListener('click', (event) => {
+            const rect = renderer3d.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(modelGroup.children, true);
+            if (intersects.length > 0) {
+                const point = intersects[0].point;
+                const bounds = getBounds();
+                const cx = Math.max(-bounds.w / 2, Math.min(bounds.w / 2, point.x));
+                const cz = Math.max(0, Math.min(bounds.L, point.z));
+                lastClickPoint = { x: cx, y: point.y, z: cz };
+                $('plantX').value = cx.toFixed(2);
+                $('plantZ').value = cz.toFixed(2);
+                coordsHud.textContent = `📍 X:${cx.toFixed(2)} Y:${point.y.toFixed(2)} Z:${cz.toFixed(2)}`;
+            }
+        });
+
+        $('pdfBtn').addEventListener('click', async () => {
+            renderer3d.render(scene, camera);
+            await new Promise(r => setTimeout(r, 300));
+            const img3d = renderer3d.domElement.toDataURL('image/png');
+            const div = $('report-container');
+            div.innerHTML =
+                `<div style="text-align:center;font-family:Segoe UI"><h2>📐 Plastenik – Izveštaj</h2><img src="${img3d}" style="max-width:100%;border:1px solid #ccc"><p>Sadnica: ${plants.length} | Flaša: ${plants.filter(p=>p.mode==='bottle').length}</p></div>`;
+            div.style.cssText = 'position:fixed;left:0;top:0;width:800px;z-index:9999;background:#fff;';
+            await new Promise(r => setTimeout(r, 300));
+            try {
+                await html2pdf().set({ margin: [8, 8, 8, 8], filename: 'plastenik-sadnice.pdf', image: { type: 'jpeg',
+                        quality: 0.95 }, html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(div).save();
+            } catch (e) { console.error(e); }
+            div.style.cssText = 'position:absolute;left:-9999px;top:0;width:800px;background:#fff;';
+        });
+
+        function animate() { requestAnimationFrame(animate);
+            controls.update();
+            renderer3d.render(scene, camera); }
+        updateAll();
+        animate();
+        console.log('✅ Plastenik sa realističnim sadnicama spreman.');
+    </script>
+</body>
+</html>
